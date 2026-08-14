@@ -2,6 +2,9 @@
 dist/
 server/
 .npm-cache/
+.cargo-home/
+.rustup-home/
+desktop/src-tauri/server/
 desktop/node_modules/
 desktop/src-tauri/target/
 desktop/src-tauri/binaries/

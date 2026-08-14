@@ -75,13 +75,14 @@ fn extract_url(line: &str) -> Option<String> {
 /// 解析 Node 与 server 负载的位置。
 ///
 /// - release：node 是 externalBin sidecar（打包后位于 Contents/MacOS/node）；
-///   server 负载经 bundle.resources 复制（"../server/**" 映射为 Resources/_up_/server）。
-/// - debug：node 取 $DSH_DESKTOP_NODE 或 PATH 中的 node；server 取仓库 server/。
-fn resolve_node_and_server(app: &AppHandle) -> Result<(PathBuf, PathBuf), String> {
+///   server 负载经 bundle.resources（"server/**"，相对 src-tauri 解析）复制到
+///   Contents/Resources/server。
+/// - debug：node 取 $DSH_DESKTOP_NODE 或 PATH 中的 node；server 取 src-tauri/server。
+fn resolve_node_and_server(_app: &AppHandle) -> Result<(PathBuf, PathBuf), String> {
     #[cfg(debug_assertions)]
     {
         let node = std::env::var("DSH_DESKTOP_NODE").unwrap_or_else(|_| "node".to_string());
-        let server = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../server");
+        let server = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("server");
         Ok((PathBuf::from(node), server))
     }
     #[cfg(not(debug_assertions))]
@@ -92,8 +93,8 @@ fn resolve_node_and_server(app: &AppHandle) -> Result<(PathBuf, PathBuf), String
             .ok_or_else(|| "无法确定可执行文件目录".to_string())?
             .to_path_buf();
         let node = exe_dir.join("node");
-        let resources = app.path().resource_dir().map_err(|e| e.to_string())?;
-        let server = resources.join("_up_").join("server");
+        let resources = _app.path().resource_dir().map_err(|e| e.to_string())?;
+        let server = resources.join("server");
         Ok((node, server))
     }
 }
@@ -183,7 +184,6 @@ fn boot_server(app: &AppHandle) -> Result<(), String> {
 
     // stderr → 日志
     {
-        let app = app.clone();
         std::thread::spawn(move || {
             let reader = BufReader::new(stderr);
             for line in reader.lines() {
@@ -241,8 +241,9 @@ fn boot_server(app: &AppHandle) -> Result<(), String> {
                         }
                         let app = app.clone();
                         let url = url.clone();
+                        let app2 = app.clone();
                         app.run_on_main_thread(move || {
-                            if let Some(window) = app.get_webview_window("main") {
+                            if let Some(window) = app2.get_webview_window("main") {
                                 match url::Url::parse(&url) {
                                     Ok(url) => {
                                         let _ = window.navigate(url);
@@ -282,7 +283,7 @@ fn setup_menu(app: &tauri::App) -> tauri::Result<()> {
     let about = PredefinedMenuItem::about(app, None, None)?;
     let separator = PredefinedMenuItem::separator(app)?;
     let reload = MenuItem::with_id(app, "reload", "重新加载", true, Some("CmdOrCtrl+R"))?;
-    let open_browser = MenuItem::with_id(app, "open-browser", "在浏览器中打开", true, None)?;
+    let open_browser = MenuItem::with_id(app, "open-browser", "在浏览器中打开", true, None::<&str>)?;
     let quit = PredefinedMenuItem::quit(app, Some("退出 DeepSeek Harness"))?;
     let menu = Menu::with_items(
         app,

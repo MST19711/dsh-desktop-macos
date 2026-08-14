@@ -5,7 +5,8 @@
 #   dist/DeepSeek Harness.app
 #   dist/DeepSeek Harness.dmg
 #
-# 依赖网络：npm registry、crates.io、nodejs.org（首次构建还需编译约 400 个 Rust crate）。
+# 依赖网络：npm registry、crates.io（可用镜像，见 src-tauri/.cargo/config.toml）、
+# nodejs.org、static.rust-lang.org（首次构建还需编译约 400 个 Rust crate）。
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
@@ -14,27 +15,43 @@ cd "$ROOT"
 export DSH_VERSION="${DSH_VERSION:-0.1.0-rc.6}"
 export NODE_MAJOR="${NODE_MAJOR:-24}"
 
-echo "==== [1/5] Node 运行时 ===="
+echo "==== [0/6] Rust 工具链 ===="
+source scripts/ensure-rust.sh
+
+echo "==== [1/6] Node 运行时 ===="
 bash scripts/fetch-node.sh
 
-echo "==== [2/5] dsh 服务器负载 ===="
+echo "==== [2/6] dsh 服务器负载 ===="
 bash scripts/fetch-payload.sh
 
-echo "==== [3/5] 精简负载 ===="
+echo "==== [3/6] 精简负载 ===="
 bash scripts/prune-payload.sh
 
-echo "==== [4/5] 图标 ===="
+echo "==== [4/6] 图标 ===="
 bash scripts/make-icon.sh
 
-echo "==== [5/5] Tauri 构建 (app + dmg) ===="
+echo "==== [5/6] Tauri 构建 (app + dmg) ===="
 cd desktop
+if [ ! -d node_modules ]; then
+  npm install --cache "$ROOT/.npm-cache" --no-audit --no-fund
+fi
 npx tauri build --bundles app,dmg
 
-echo "==== 拷贝产物到 dist/ ===="
+echo "==== [6/6] 修正签名 + 拷贝产物到 dist/ ===="
+# tauri 默认以 hardened runtime 签名 sidecar，会阻止 Node/V8 在 Apple Silicon 上
+# 申请 JIT 内存（"Failed to reserve virtual memory for CodeRange"）。
+# 修正：node sidecar 改为普通 ad-hoc 签名（不带 runtime），再重签整个 app 使封缄有效。
+APP_BUNDLE="src-tauri/target/release/bundle/macos/DeepSeek Harness.app"
+codesign --force --sign - --preserve-metadata=identifier \
+  "$APP_BUNDLE/Contents/MacOS/node"
+codesign --force --sign - --options runtime --preserve-metadata=identifier,entitlements \
+  "$APP_BUNDLE"
+
 mkdir -p "$ROOT/dist"
 rm -rf "$ROOT/dist/DeepSeek Harness.app" "$ROOT/dist/DeepSeek Harness.dmg"
-cp -R src-tauri/target/release/bundle/macos/"DeepSeek Harness.app" "$ROOT/dist/"
-cp src-tauri/target/release/bundle/dmg/"DeepSeek Harness.dmg" "$ROOT/dist/"
+cp -R "$APP_BUNDLE" "$ROOT/dist/"
+cp src-tauri/target/release/bundle/dmg/"DeepSeek Harness_0.1.0_aarch64.dmg" "$ROOT/dist/DeepSeek Harness.dmg"
+codesign --verify --deep --strict "$ROOT/dist/DeepSeek Harness.app" && echo "codesign 校验通过"
 
 echo ""
 echo "构建完成："

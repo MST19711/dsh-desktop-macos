@@ -8,7 +8,7 @@
 DeepSeek Harness.app/
   Contents/MacOS/DeepSeek Harness          # Rust 主程序
   Contents/MacOS/node                      # Node.js 24 LTS（externalBin sidecar）
-  Contents/Resources/_up_/server/          # dsh 服务器负载（node_modules + 前端 dist）
+  Contents/Resources/server/              # dsh 服务器负载（node_modules + 前端 dist）
   Contents/Resources/ui/                   # 启动 splash 页
 ```
 
@@ -27,6 +27,8 @@ DeepSeek Harness.app/
 - 需要网络：npm registry、crates.io、nodejs.org；首次构建会编译约 400 个 Rust crate（5–15 分钟）。
 - 只支持当前架构（Apple Silicon arm64；Intel 机器运行脚本会自动下载 x64 Node）。
 - 签名：ad-hoc（`signingIdentity: "-"`），本机运行无需开发者账号；未做公证。
+  构建脚本还会把 node sidecar 改为不带 hardened runtime 的 ad-hoc 签名（否则
+  Apple Silicon 上 V8 无法申请 JIT 内存，服务器会以 CodeRange OOM 崩溃）。
 - 版本：`DSH_VERSION`（默认 `0.1.0-rc.6`）与 `NODE_MAJOR`（默认 `24`）可用环境变量覆盖后重新构建以升级。
 
 ## 开发调试
@@ -53,11 +55,11 @@ debug 模式可用 `DSH_DESKTOP_NODE=/path/to/node npx tauri dev` 指定 Node。
 ```
 build.sh              一键构建（fetch node/payload → prune → icon → tauri build）
 scripts/fetch-node.sh     下载官方 Node 24 LTS → src-tauri/binaries/node-<triple>
-scripts/fetch-payload.sh  npm install @deepseek-ai/dsh → server/
+scripts/fetch-payload.sh  npm install @deepseek-ai/dsh → desktop/src-tauri/server/
 scripts/prune-payload.sh  删除非 darwin-arm64 预编译物（省 ~60MB）
 scripts/make-icon.sh      生成应用图标（Swift 绘制 + tauri icon）
 ui/                    splash 页面（frontendDist）
-server/                服务器负载（构建生成，gitignored）
+desktop/src-tauri/server/  服务器负载（构建生成，gitignored）
 desktop/               Tauri 应用（src-tauri：Rust 外壳；package.json：tauri CLI）
 dist/                  构建产物（gitignored）
 ```
@@ -65,5 +67,7 @@ dist/                  构建产物（gitignored）
 ## 故障排查
 
 - 启动超时/报错对话框 → 查看 `~/Library/Logs/DeepSeekHarness/desktop.log`。
-- 重新构建前如负载损坏：`rm -rf server desktop/src-tauri/binaries && ./build.sh`。
+- 重新构建前如负载损坏：`rm -rf desktop/src-tauri/server desktop/src-tauri/binaries && ./build.sh`。
+- crates.io 直连 TLS 失败时使用 rsproxy 镜像（见 `desktop/src-tauri/.cargo/config.toml`），
+  可自行换成其他镜像源。
 - 网络受限环境：需先在有网机器上完成 `./build.sh`，或预置 `server/` 与 `binaries/node-*`。
