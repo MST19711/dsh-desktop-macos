@@ -35,6 +35,12 @@ cd desktop
 if [ ! -d node_modules ]; then
   npm install --cache "$ROOT/.npm-cache" --no-audit --no-fund
 fi
+# tauri-codegen 不跟踪 ui/ 目录文件（frontendDist 资产嵌入不触发重编译），
+# 检测到 ui/ 比已构建二进制新时，强制 touch lib.rs 触发重新嵌入。
+if [ "ui/index.html" -nt "src-tauri/target/release/dsh-desktop" ]; then
+  touch src-tauri/src/lib.rs
+  echo "==> ui/ 有变更，强制重编译以重新嵌入 splash 资产"
+fi
 npx tauri build --bundles app,dmg
 
 echo "==== [6/6] 修正签名 + 拷贝产物到 dist/ ===="
