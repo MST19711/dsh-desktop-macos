@@ -1,0 +1,14 @@
+{
+  "name": "dsh-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "DeepSeek Harness macOS desktop app (Tauri shell)",
+  "type": "module",
+  "scripts": {
+    "tauri": "tauri",
+    "build": "tauri build --bundles app,dmg"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.11.4"
+  }
+}

@@ -1,0 +1,16 @@
+# 构建产物与下载物
+dist/
+server/
+.npm-cache/
+desktop/node_modules/
+desktop/src-tauri/target/
+desktop/src-tauri/binaries/
+desktop/src-tauri/gen/
+desktop/src-tauri/icons/android/
+desktop/src-tauri/icons/ios/
+
+# macOS
+.DS_Store
+
+# 日志
+*.log
