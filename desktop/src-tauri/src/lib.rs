@@ -254,6 +254,8 @@ fn boot_server(app: &AppHandle) -> Result<(), String> {
                                     }
                                     Err(error) => log_line(&format!("无法解析 URL: {error}")),
                                 }
+                                // 导航后滚动视图必然已就绪，再补一次弹性禁用。
+                                disable_webview_scroll_elasticity(&window);
                             }
                         })
                         .ok();
@@ -303,6 +305,43 @@ fn show_main_window(app: &AppHandle) {
         let _ = window.show();
         let _ = window.unminimize();
         let _ = window.set_focus();
+    }
+}
+
+/// 禁用 WKWebView 文档级滚动弹性（macOS 橡皮筋/回弹）。
+///
+/// WKWebView 的滚动视图（私有 WKScrollView，NSScrollView 子类）默认开启弹性，
+/// 即使在不可滚动区域滚动滚轮也会让整个页面回弹。这里遍历窗口视图树，
+/// 把所有 NSScrollView 的横纵向弹性设为 None；内部 HTML 滚动容器不受影响。
+#[cfg(target_os = "macos")]
+fn disable_webview_scroll_elasticity(window: &tauri::WebviewWindow) {
+    use objc2::runtime::NSObjectProtocol;
+    use objc2::ClassType;
+    use objc2_app_kit::{NSScrollElasticity, NSScrollView, NSView, NSWindow};
+
+    unsafe {
+        let Ok(ns_window) = window.ns_window() else {
+            return;
+        };
+        let ns_window = ns_window as *mut NSWindow;
+        let Some(content) = (&*ns_window).contentView() else {
+            return;
+        };
+
+        fn walk(view: &NSView) {
+            if view.isKindOfClass(NSScrollView::class()) {
+                let scroll: &NSScrollView = unsafe { &*(view as *const NSView as *const NSScrollView) };
+                scroll.setVerticalScrollElasticity(NSScrollElasticity::None);
+                scroll.setHorizontalScrollElasticity(NSScrollElasticity::None);
+                log_line("webview scroll elasticity disabled");
+            }
+            let subviews = view.subviews();
+            let count = subviews.count();
+            for i in 0..count {
+                walk(&subviews.objectAtIndex(i));
+            }
+        }
+        walk(&content);
     }
 }
 
@@ -366,6 +405,19 @@ pub fn run() {
             .min_inner_size(900.0, 600.0)
             .build()?;
             window.show()?;
+            // WKWebView 的滚动视图（WKScrollView）在布局后才存在，需在显示后
+            // 再执行弹性禁用；导航到真实页面后与延迟重试兜底。
+            disable_webview_scroll_elasticity(&window);
+            {
+                let window = window.clone();
+                let app = app.handle().clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(Duration::from_secs(2));
+                    let _ = app.run_on_main_thread(move || {
+                        disable_webview_scroll_elasticity(&window);
+                    });
+                });
+            }
 
             let handle = app.handle().clone();
             std::thread::spawn(move || {

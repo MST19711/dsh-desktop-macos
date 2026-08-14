@@ -19,3 +19,16 @@ npm install --cache "$ROOT/.npm-cache" --omit=dev --no-audit --no-fund \
   "@deepseek-ai/dsh@${DSH_VERSION}"
 
 echo "==> 安装完成: $(du -sh node_modules | cut -f1)"
+
+# ── 桌面端补丁 ─────────────────────────────────────────────────────────────
+# 禁用页面级弹性滚动（WKWebView 橡皮筋效应）：根文档不可滚动，
+# 滚动只发生在应用内部容器（面板式布局，#root 为 100% 高度）。
+# 幂等：标记注释存在即跳过。
+PATCH_MARK="dsh-desktop: 禁用页面级弹性滚动"
+INDEX_CSS="$(ls node_modules/@deepseek-ai/dsh-web-frontend/dist/assets/index-*.css 2>/dev/null | head -1)"
+if [ -n "$INDEX_CSS" ] && ! grep -q "$PATCH_MARK" "$INDEX_CSS"; then
+  printf '\n/* %s */\nhtml,body{height:100%%;overflow:hidden;overscroll-behavior:none}\n' "$PATCH_MARK" >> "$INDEX_CSS"
+  echo "==> 已注入滚动补丁: $INDEX_CSS"
+else
+  echo "==> 滚动补丁已存在（幂等跳过）"
+fi
