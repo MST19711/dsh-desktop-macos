@@ -12,6 +12,18 @@ LOG="$HOME/Library/Logs/DeepSeekHarness/desktop.log"
 
 [ -d "$APP" ] || { echo "错误：$APP 不存在，先运行 build.sh" >&2; exit 1; }
 
+echo "==== [0] 清理残留实例 ===="
+# 先退出已运行的实例，避免单实例机制干扰；同时清理历史遗留的孤儿 node 子进程
+# （例如应用被 SIGTERM 强杀时无法执行清理逻辑）。
+osascript -e 'quit app "DeepSeek Harness"' >/dev/null 2>&1 || true
+sleep 2
+for pid in $(pgrep -f 'bin.js web --host 127.0.0.1 --port 0' || true); do
+  if ps -p "$pid" -o command= 2>/dev/null | grep -q "$APP"; then
+    kill "$pid" 2>/dev/null || true
+  fi
+done
+sleep 1
+
 echo "==== [1] codesign 校验 ===="
 codesign --verify --deep --strict "$APP" && echo "codesign OK"
 codesign -dv "$APP" 2>&1 | grep -E "Identifier|Signature|TeamIdentifier" | head -4 || true
@@ -23,7 +35,9 @@ echo "等待服务器就绪（最多 90 秒）..."
 URL=""
 for i in $(seq 1 90); do
   if [ -f "$LOG" ]; then
-    URL="$(grep -o 'server ready: http://127\.0\.0\.1:[0-9]*' "$LOG" | awk '{print $3}' | head -1)"
+    # 注意：日志可能只写了 "spawning" 尚未写就绪行，grep 无匹配返回 1，
+    # 在 set -e 下会杀死脚本，因此末尾加 || true。
+    URL="$(grep -o 'server ready: http://127\.0\.0\.1:[0-9]*' "$LOG" 2>/dev/null | awk '{print $3}' | head -1 || true)"
     [ -n "$URL" ] && break
   fi
   sleep 1

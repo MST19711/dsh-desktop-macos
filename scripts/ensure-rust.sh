@@ -2,6 +2,7 @@
 # 确保项目使用 >=1.86 的 Rust 工具链（当前 tauri 依赖树需要）。
 # 工具链装在 .rustup-home / .cargo-home（gitignored），不改动系统全局设置。
 # 若系统 cargo 已满足版本要求则直接复用。
+# 注意：本脚本被 build.sh source 使用，成功路径用 return 而非 exit。
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 export RUSTUP_HOME="$ROOT/.rustup-home"
@@ -17,7 +18,7 @@ version_ge() { # $1 >= $2
 if [ -x "$CARGO_HOME/bin/cargo" ]; then
   export PATH="$CARGO_HOME/bin:$PATH"
   echo "==> 使用项目工具链: $("$CARGO_HOME/bin/rustc" --version)"
-  exit 0
+  return 0 2>/dev/null || exit 0
 fi
 
 # 2) 系统工具链（版本足够）
@@ -25,7 +26,7 @@ if command -v cargo >/dev/null 2>&1; then
   SYS_VER="$(rustc --version 2>/dev/null | awk '{print $2}')"
   if [ -n "$SYS_VER" ] && version_ge "$SYS_VER" "$MIN_RUSTC"; then
     echo "==> 使用系统工具链: rustc $SYS_VER"
-    exit 0
+    return 0 2>/dev/null || exit 0
   fi
   echo "==> 系统 rustc $SYS_VER 过旧（需要 >= $MIN_RUSTC），将安装项目专用工具链"
 else

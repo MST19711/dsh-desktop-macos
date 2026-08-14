@@ -16,6 +16,11 @@ esac
 DEST="$ROOT/desktop/src-tauri/binaries/node-${TRIPLE}"
 mkdir -p "$(dirname "$DEST")"
 
+if [ -x "$DEST" ] && "$DEST" --version >/dev/null 2>&1; then
+  echo "==> node 已存在: $("$DEST" --version)，跳过下载"
+  exit 0
+fi
+
 echo "==> 查询 nodejs.org 最新 v${NODE_MAJOR} LTS 版本..."
 VERSION="$(curl -fsSL https://nodejs.org/dist/index.json | \
   python3 -c "
