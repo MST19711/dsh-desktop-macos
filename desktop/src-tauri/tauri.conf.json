@@ -27,7 +27,8 @@
       "icons/icon.ico"
     ],
     "resources": [
-      "server"
+      "server",
+      "npm"
     ],
     "externalBin": [
       "binaries/node"

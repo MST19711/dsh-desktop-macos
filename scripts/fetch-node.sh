@@ -1,7 +1,8 @@
 #!/bin/bash
-# 下载官方 Node.js v24 LTS 二进制，放到 src-tauri/binaries/，
-# 作为 Tauri sidecar（externalBin）随 .app 一起打包。
-# 文件名必须带目标三元组后缀（tauri-bundler 会去掉后缀后放入 Contents/MacOS/）。
+# 下载官方 Node.js v24 LTS 二进制与随附的 npm CLI：
+# - bin/node → src-tauri/binaries/node-<triple>（Tauri externalBin sidecar，
+#   文件名带目标三元组后缀，打包时放入 Contents/MacOS/node）
+# - lib/node_modules/npm → src-tauri/npm/（随包分发，供运行时自动更新使用）
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 NODE_MAJOR="${NODE_MAJOR:-24}"
@@ -14,10 +15,11 @@ case "$ARCH" in
 esac
 
 DEST="$ROOT/desktop/src-tauri/binaries/node-${TRIPLE}"
+NPM_DEST="$ROOT/desktop/src-tauri/npm"
 mkdir -p "$(dirname "$DEST")"
 
-if [ -x "$DEST" ] && "$DEST" --version >/dev/null 2>&1; then
-  echo "==> node 已存在: $("$DEST" --version)，跳过下载"
+if [ -x "$DEST" ] && "$DEST" --version >/dev/null 2>&1 && [ -f "$NPM_DEST/bin/npm-cli.js" ]; then
+  echo "==> node 与 npm 已存在: $("$DEST" --version)，跳过下载"
   exit 0
 fi
 
@@ -48,11 +50,15 @@ URL="https://nodejs.org/dist/v${VERSION}/${TARBALL}"
 echo "==> 下载 $URL"
 curl -fL --retry 3 -o "/tmp/${TARBALL}" "$URL"
 
-echo "==> 解出 bin/node"
+echo "==> 解出 bin/node 与 npm CLI"
 rm -rf "/tmp/node-extract-${VERSION}"
 mkdir -p "/tmp/node-extract-${VERSION}"
 tar -xzf "/tmp/${TARBALL}" -C "/tmp/node-extract-${VERSION}"
-cp "/tmp/node-extract-${VERSION}/node-v${VERSION}-${NODE_ARCH}/bin/node" "$DEST"
+EXTRACT="/tmp/node-extract-${VERSION}/node-v${VERSION}-${NODE_ARCH}"
+cp "$EXTRACT/bin/node" "$DEST"
 chmod +x "$DEST"
+rm -rf "$NPM_DEST"
+cp -R "$EXTRACT/lib/node_modules/npm" "$NPM_DEST"
 
-echo "==> 验证: $("$DEST" --version) ($(du -h "$DEST" | cut -f1))"
+echo "==> 验证: $("$DEST" --version) ($(du -h "$DEST" | cut -f1)), npm CLI $(du -sh "$NPM_DEST" | cut -f1)"
+"$DEST" "$NPM_DEST/bin/npm-cli.js" --version 2>/dev/null | tail -1 | xargs echo "   npm"

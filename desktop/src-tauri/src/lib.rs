@@ -6,6 +6,8 @@
 //! 生命周期约定：关闭窗口只隐藏窗口（服务器继续后台运行），
 //! 仅在托盘菜单「退出」、菜单栏 Cmd+Q 或 Dock 退出时才真正结束进程。
 
+mod updater;
+
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use std::process::{Child, Command as StdCommand, Stdio};
@@ -80,27 +82,12 @@ fn extract_url(line: &str) -> Option<String> {
 ///
 /// - release：node 是 externalBin sidecar（打包后位于 Contents/MacOS/node）；
 ///   server 负载经 bundle.resources（"server/**"，相对 src-tauri 解析）复制到
-///   Contents/Resources/server。
+///   Contents/Resources/server；自动更新后的负载位于应用数据目录，优先使用。
 /// - debug：node 取 $DSH_DESKTOP_NODE 或 PATH 中的 node；server 取 src-tauri/server。
-fn resolve_node_and_server(_app: &AppHandle) -> Result<(PathBuf, PathBuf), String> {
-    #[cfg(debug_assertions)]
-    {
-        let node = std::env::var("DSH_DESKTOP_NODE").unwrap_or_else(|_| "node".to_string());
-        let server = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("server");
-        Ok((PathBuf::from(node), server))
-    }
-    #[cfg(not(debug_assertions))]
-    {
-        let exe = std::env::current_exe().map_err(|e| e.to_string())?;
-        let exe_dir = exe
-            .parent()
-            .ok_or_else(|| "无法确定可执行文件目录".to_string())?
-            .to_path_buf();
-        let node = exe_dir.join("node");
-        let resources = _app.path().resource_dir().map_err(|e| e.to_string())?;
-        let server = resources.join("server");
-        Ok((node, server))
-    }
+fn resolve_node_and_server(app: &AppHandle) -> Result<(PathBuf, PathBuf), String> {
+    let node = updater::bundled_node_path(app);
+    let (server, _source) = updater::select_server(app)?;
+    Ok((node, server))
 }
 
 /// 弹出致命错误对话框（在独立线程阻塞显示，避免阻塞主线程），关闭后退出应用。
@@ -425,6 +412,10 @@ pub fn run() {
                     fatal_dialog(&handle, format!("无法启动 DeepSeek Harness 服务器：\n{error}"));
                 }
             });
+
+            // 后台自动更新：检查 npm 最新版，有新版则安装，下次启动生效。
+            let handle = app.handle().clone();
+            std::thread::spawn(move || updater::run(&handle));
             Ok(())
         })
         .on_menu_event(|app, event| match event.id().as_ref() {

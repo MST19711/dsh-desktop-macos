@@ -30,6 +30,8 @@ DeepSeek Harness.app/
   构建脚本还会把 node sidecar 改为不带 hardened runtime 的 ad-hoc 签名（否则
   Apple Silicon 上 V8 无法申请 JIT 内存，服务器会以 CodeRange OOM 崩溃）。
 - 版本：`DSH_VERSION`（默认 `0.1.0-rc.6`）与 `NODE_MAJOR`（默认 `24`）可用环境变量覆盖后重新构建以升级。
+  内置负载只是「出厂版本」；运行时另有自动更新机制（见下文「自动更新」），
+  日常升级通常无需重新构建 App。
 
 ## 开发调试
 
@@ -53,16 +55,40 @@ debug 模式可用 `DSH_DESKTOP_NODE=/path/to/node npx tauri dev` 指定 Node。
   或 Dock 图标可重新显示主窗口。
 - 菜单：重新加载（⌘R）、在浏览器中打开、退出（⌘Q）。
 
+## 自动更新
+
+App 启动时会在后台检查 npm 上 `@deepseek-ai/dsh` 的最新版本（内置 node + 随包分发的
+npm CLI，节流 6 小时一次）：
+
+1. 有新版 → 安装到应用数据目录 `~/Library/Application Support/com.deepseek-ai.dsh-desktop/server.new`
+   （暂存目录，校验 `bin.js` 存在后原子替换为 `server/`）。
+2. 本次运行仍使用旧负载，**下次启动生效**：优先加载更新版负载，损坏/缺失时自动回退内置负载。
+3. 更新只写应用数据目录，不改 `.app` 包内资源，不破坏代码签名；失败（离线/超时/校验失败）
+   仅记入日志，不影响正常启动。
+
+控制环境变量：
+
+| 变量 | 作用 |
+| --- | --- |
+| `DSH_DESKTOP_AUTOUPDATE=0` | 关闭自动更新 |
+| `DSH_DESKTOP_FORCE_UPDATE=1` | 忽略版本比较与 6 小时节流，强制重装（测试用） |
+| `npm_config_registry=...` | npm 镜像/本地源（npm 标准变量，透传给更新器） |
+
+回退内置负载：删除 `~/Library/Application Support/com.deepseek-ai.dsh-desktop/server` 目录即可。
+日志：`~/Library/Logs/DeepSeekHarness/desktop.log` 中以 `auto-update:` 前缀记录每次检查与安装结果。
+
 ## 目录结构
 
 ```
 build.sh              一键构建（fetch node/payload → prune → icon → tauri build）
-scripts/fetch-node.sh     下载官方 Node 24 LTS → src-tauri/binaries/node-<triple>
+scripts/fetch-node.sh     下载官方 Node 24 LTS 与随附 npm CLI → binaries/ 与 src-tauri/npm/
 scripts/fetch-payload.sh  npm install @deepseek-ai/dsh → desktop/src-tauri/server/
 scripts/prune-payload.sh  删除非 darwin-arm64 预编译物（省 ~60MB）
 scripts/make-icon.sh      生成应用图标（Swift 绘制 + tauri icon）
+scripts/verify-app.sh     构建产物自动验证（启动/就绪/子进程/清理/codesign）
 ui/                    splash 页面（frontendDist）
 desktop/src-tauri/server/  服务器负载（构建生成，gitignored）
+desktop/src-tauri/npm/     随附 npm CLI（构建生成，gitignored，供自动更新使用）
 desktop/               Tauri 应用（src-tauri：Rust 外壳；package.json：tauri CLI）
 dist/                  构建产物（gitignored）
 ```
@@ -70,6 +96,8 @@ dist/                  构建产物（gitignored）
 ## 故障排查
 
 - 启动超时/报错对话框 → 查看 `~/Library/Logs/DeepSeekHarness/desktop.log`。
+- 自动更新异常（一直用旧版/回退内置版）→ 查看日志中 `auto-update:` 行；
+  清理 `~/Library/Application Support/com.deepseek-ai.dsh-desktop/server` 可重置为内置负载。
 - 重新构建前如负载损坏：`rm -rf desktop/src-tauri/server desktop/src-tauri/binaries && ./build.sh`。
 - crates.io 直连 TLS 失败时使用 rsproxy 镜像（见 `desktop/src-tauri/.cargo/config.toml`），
   可自行换成其他镜像源。
