@@ -47,7 +47,10 @@ debug 模式可用 `DSH_DESKTOP_NODE=/path/to/node npx tauri dev` 指定 Node。
 - 服务器日志：`~/Library/Logs/DeepSeekHarness/desktop.log`（含就绪 URL 与服务器输出）。
 - 用户数据：沿用 harness 惯例存于 `~/.dsh`（与命令行 `dsh` 共享；可用 `DSH_HOME` 覆盖）。
 - 使用：在 Web UI 中 **Settings → Models** 配置 API Key，然后 **选择工作目录** 即可开始对话。
-- 单实例：重复打开会聚焦已有窗口。
+- 单实例：重复打开会恢复并聚焦已有窗口。
+- 生命周期：**关闭窗口只隐藏窗口**，服务器继续在后台运行（菜单栏出现鲸鱼托盘图标）；
+  真正退出：点击托盘图标 → 退出，或菜单栏 ⌘Q / Dock 右键退出。点击托盘图标（左键）
+  或 Dock 图标可重新显示主窗口。
 - 菜单：重新加载（⌘R）、在浏览器中打开、退出（⌘Q）。
 
 ## 目录结构

@@ -25,4 +25,11 @@ echo "==> tauri icon 生成全套图标"
   npx tauri icon "$ROOT/app-icon.png"
 )
 
+echo "==> 托盘图标 (menu bar template, 透明底黑鲸鱼)"
+CLANG_MODULE_CACHE_PATH=/tmp/clang-modcache \
+SWIFT_MODULE_CACHE_PATH=/tmp/swift-modcache \
+  swift "$ROOT/scripts/render-svg.swift" \
+    "$ROOT/scripts/deepseek-whale-tray.svg" "$ROOT/desktop/src-tauri/icons/tray.png"
+sips -z 128 128 "$ROOT/desktop/src-tauri/icons/tray.png" --out "$ROOT/desktop/src-tauri/icons/tray.png" >/dev/null
+
 echo "==> 图标完成"

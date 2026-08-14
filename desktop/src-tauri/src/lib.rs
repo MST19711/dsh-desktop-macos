@@ -2,6 +2,9 @@
 //!
 //! 职责：启动内嵌的 dsh web 服务器（Node sidecar + npm 负载），
 //! 在系统 WebView 窗口中加载其 Web UI；退出时确保子进程被终止。
+//!
+//! 生命周期约定：关闭窗口只隐藏窗口（服务器继续后台运行），
+//! 仅在托盘菜单「退出」、菜单栏 Cmd+Q 或 Dock 退出时才真正结束进程。
 
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
@@ -12,8 +15,9 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
+use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
 use tauri::{
-    AppHandle, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder, WindowEvent,
+    image::Image, AppHandle, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder, WindowEvent,
 };
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 
@@ -293,18 +297,63 @@ fn setup_menu(app: &tauri::App) -> tauri::Result<()> {
     Ok(())
 }
 
+/// 显示并聚焦主窗口（托盘点击 / Dock 重新打开时调用）。
+fn show_main_window(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+        let _ = window.unminimize();
+        let _ = window.set_focus();
+    }
+}
+
+/// 菜单栏（状态栏）托盘图标：左键显示主窗口，右键菜单含「显示主窗口 / 退出」。
+fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
+    let show = MenuItem::with_id(app, "show", "显示主窗口", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "tray-quit", "退出 DeepSeek Harness", true, None::<&str>)?;
+    let menu = Menu::with_items(app, &[&show, &quit])?;
+
+    let icon = Image::from_bytes(include_bytes!("../icons/tray.png"))
+        .map_err(|e| tauri::Error::Anyhow(anyhow::anyhow!("tray icon: {e}")))?;
+
+    TrayIconBuilder::with_id("main-tray")
+        .icon(icon)
+        .icon_as_template(true)
+        .tooltip("DeepSeek Harness")
+        .menu(&menu)
+        .show_menu_on_left_click(false)
+        .on_menu_event(|app, event| match event.id().as_ref() {
+            "show" => show_main_window(app),
+            "tray-quit" => {
+                log_line("quit via tray menu");
+                app.exit(0);
+            }
+            _ => {}
+        })
+        .on_tray_icon_event(|tray, event| {
+            if let TrayIconEvent::Click {
+                button: MouseButton::Left,
+                ..
+            } = event
+            {
+                show_main_window(tray.app_handle());
+            }
+        })
+        .build(app)?;
+    log_line("tray icon ready");
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            // 单实例：再次启动时聚焦已有窗口。
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.set_focus();
-            }
+            // 单实例：再次启动时恢复并聚焦主窗口。
+            show_main_window(app);
         }))
         .setup(|app| {
             app.manage(ServerState::default());
             setup_menu(app)?;
+            setup_tray(app)?;
 
             // 先显示 splash 页，服务器就绪后导航到真实 UI。
             let window = WebviewWindowBuilder::new(
@@ -341,15 +390,26 @@ pub fn run() {
             _ => {}
         })
         .on_window_event(|window, event| {
-            if matches!(event, WindowEvent::Destroyed) {
-                kill_server(window.app_handle());
+            match event {
+                // 关闭窗口 = 隐藏（后台继续运行服务器）；真正退出走托盘/Dock/Cmd+Q。
+                WindowEvent::CloseRequested { api, .. } => {
+                    if window.label() == "main" {
+                        api.prevent_close();
+                        let _ = window.hide();
+                        log_line("main window hidden; server keeps running");
+                    }
+                }
+                WindowEvent::Destroyed => kill_server(window.app_handle()),
+                _ => {}
             }
         })
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
-        .run(|app_handle, event| {
-            if matches!(event, RunEvent::ExitRequested { .. } | RunEvent::Exit) {
-                kill_server(app_handle);
-            }
+        .run(|app_handle, event| match event {
+            // macOS：点击 Dock 图标重新打开应用时恢复主窗口。
+            #[cfg(target_os = "macos")]
+            RunEvent::Reopen { .. } => show_main_window(app_handle),
+            RunEvent::ExitRequested { .. } | RunEvent::Exit => kill_server(app_handle),
+            _ => {}
         });
 }
