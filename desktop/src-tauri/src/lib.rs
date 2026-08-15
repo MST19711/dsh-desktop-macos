@@ -390,10 +390,9 @@ pub fn run() {
             .title("DeepSeek Harness")
             .inner_size(1280.0, 860.0)
             .min_inner_size(900.0, 600.0)
-            // 无顶栏（沉浸式）：内容延伸到标题栏区域，交通灯按钮悬浮保留
-            // （macOS 13+ unified toolbar 风格；Overlay 需配合 decorations(false)）
+            // 无顶栏（沉浸式）：Overlay 隐藏标题栏但保留交通灯/圆角/拖拽/缩放，
+            // 注意：不能搭配 decorations(false)——那会移除整个窗口样式（方形、无灯、不可拖）
             .title_bar_style(tauri::TitleBarStyle::Overlay)
-            .decorations(false)
             .build()?;
             window.show()?;
             // WKWebView 的滚动视图（WKScrollView）在布局后才存在，需在显示后
