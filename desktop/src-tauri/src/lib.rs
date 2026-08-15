@@ -16,7 +16,7 @@ use std::sync::mpsc::{self, RecvTimeoutError};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
-use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
+use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
 use tauri::{
     image::Image, AppHandle, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder, WindowEvent,
@@ -271,16 +271,29 @@ fn boot_server(app: &AppHandle) -> Result<(), String> {
     }
 }
 
-/// 构建最小 macOS 菜单。
+/// 构建 macOS 菜单。
+///
+/// 注意：必须包含标准「编辑」菜单——macOS 的 Cmd+C/V/X/A 等快捷键由菜单栏
+/// 编辑项路由到 first responder（WKWebView 文本响应链），缺失时 WebView 内
+/// 复制粘贴快捷键全部失效（只能右键菜单操作）。
 fn setup_menu(app: &tauri::App) -> tauri::Result<()> {
     let about = PredefinedMenuItem::about(app, None, None)?;
     let separator = PredefinedMenuItem::separator(app)?;
     let reload = MenuItem::with_id(app, "reload", "重新加载", true, Some("CmdOrCtrl+R"))?;
     let open_browser = MenuItem::with_id(app, "open-browser", "在浏览器中打开", true, None::<&str>)?;
     let quit = PredefinedMenuItem::quit(app, Some("退出 DeepSeek Harness"))?;
+    let edit = Submenu::with_items(app, "编辑", true, &[
+        &PredefinedMenuItem::undo(app, Some("撤销"))?,
+        &PredefinedMenuItem::redo(app, Some("重做"))?,
+        &PredefinedMenuItem::separator(app)?,
+        &PredefinedMenuItem::cut(app, Some("剪切"))?,
+        &PredefinedMenuItem::copy(app, Some("复制"))?,
+        &PredefinedMenuItem::paste(app, Some("粘贴"))?,
+        &PredefinedMenuItem::select_all(app, Some("全选"))?,
+    ])?;
     let menu = Menu::with_items(
         app,
-        &[&about, &separator, &reload, &open_browser, &separator, &quit],
+        &[&about, &separator, &edit, &separator, &reload, &open_browser, &separator, &quit],
     )?;
     app.set_menu(menu)?;
     Ok(())
