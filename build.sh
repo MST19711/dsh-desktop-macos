@@ -1,9 +1,9 @@
 #!/bin/bash
-# 一键构建 DeepSeek Harness macOS 桌面 App。
+# 一键构建 DSH Desktop macOS 桌面 App。
 #
 # 产物：
-#   dist/DeepSeek Harness.app
-#   dist/DeepSeek Harness.dmg
+#   dist/DSH Desktop.app
+#   dist/DSH Desktop.dmg
 #
 # 依赖网络：npm registry、crates.io（可用镜像，见 src-tauri/.cargo/config.toml）、
 # nodejs.org、static.rust-lang.org（首次构建还需编译约 400 个 Rust crate）。
@@ -47,20 +47,20 @@ echo "==== [6/6] 修正签名 + 拷贝产物到 dist/ ===="
 # tauri 默认以 hardened runtime 签名 sidecar，会阻止 Node/V8 在 Apple Silicon 上
 # 申请 JIT 内存（"Failed to reserve virtual memory for CodeRange"）。
 # 修正：node sidecar 改为普通 ad-hoc 签名（不带 runtime），再重签整个 app 使封缄有效。
-APP_BUNDLE="src-tauri/target/release/bundle/macos/DeepSeek Harness.app"
+APP_BUNDLE="src-tauri/target/release/bundle/macos/DSH Desktop.app"
 codesign --force --sign - --preserve-metadata=identifier \
   "$APP_BUNDLE/Contents/MacOS/node"
 codesign --force --sign - --options runtime --preserve-metadata=identifier,entitlements \
   "$APP_BUNDLE"
 
 mkdir -p "$ROOT/dist"
-rm -rf "$ROOT/dist/DeepSeek Harness.app" "$ROOT/dist/DeepSeek Harness.dmg"
+rm -rf "$ROOT/dist/DSH Desktop.app" "$ROOT/dist/DSH Desktop.dmg"
 cp -R "$APP_BUNDLE" "$ROOT/dist/"
-cp src-tauri/target/release/bundle/dmg/"DeepSeek Harness_0.1.0_aarch64.dmg" "$ROOT/dist/DeepSeek Harness.dmg"
-codesign --verify --deep --strict "$ROOT/dist/DeepSeek Harness.app" && echo "codesign 校验通过"
+cp src-tauri/target/release/bundle/dmg/"DSH Desktop_0.1.0_aarch64.dmg" "$ROOT/dist/DSH Desktop.dmg"
+codesign --verify --deep --strict "$ROOT/dist/DSH Desktop.app" && echo "codesign 校验通过"
 
 echo ""
 echo "构建完成："
-echo "  $ROOT/dist/DeepSeek Harness.app"
-echo "  $ROOT/dist/DeepSeek Harness.dmg"
-echo "运行：open \"$ROOT/dist/DeepSeek Harness.app\""
+echo "  $ROOT/dist/DSH Desktop.app"
+echo "  $ROOT/dist/DSH Desktop.dmg"
+echo "运行：open \"$ROOT/dist/DSH Desktop.app\""

@@ -1,4 +1,4 @@
-//! DeepSeek Harness 桌面外壳。
+//! DSH Desktop 桌面外壳。
 //!
 //! 职责：启动内嵌的 dsh web 服务器（Node sidecar + npm 负载），
 //! 在系统 WebView 窗口中加载其 Web UI；退出时确保子进程被终止。
@@ -45,12 +45,12 @@ impl Default for ServerState {
     }
 }
 
-/// 追加一行日志到 ~/Library/Logs/DeepSeekHarness/desktop.log（debug 构建同时打到 stderr）。
+/// 追加一行日志到 ~/Library/Logs/DSHDesktop/desktop.log（debug 构建同时打到 stderr）。
 fn log_line(line: &str) {
     #[cfg(debug_assertions)]
     eprintln!("[dsh-desktop] {line}");
     let Some(home) = std::env::var_os("HOME") else { return };
-    let dir = PathBuf::from(home).join("Library/Logs/DeepSeekHarness");
+    let dir = PathBuf::from(home).join("Library/Logs/DSHDesktop");
     if std::fs::create_dir_all(&dir).is_err() {
         return;
     }
@@ -97,7 +97,7 @@ fn fatal_dialog(app: &AppHandle, message: String) {
     std::thread::spawn(move || {
         app.dialog()
             .message(message)
-            .title("DeepSeek Harness")
+            .title("DSH Desktop")
             .kind(MessageDialogKind::Error)
             .blocking_show();
         app.exit(1);
@@ -210,7 +210,7 @@ fn boot_server(app: &AppHandle) -> Result<(), String> {
             log_line("server did not become ready in time");
             fatal_dialog(
                 app,
-                "DeepSeek Harness 服务器启动超时。\n请查看日志：~/Library/Logs/DeepSeekHarness/desktop.log".to_string(),
+                "DSH Desktop 服务器启动超时。\n请查看日志：~/Library/Logs/DSHDesktop/desktop.log".to_string(),
             );
             return Ok(());
         }
@@ -256,9 +256,9 @@ fn boot_server(app: &AppHandle) -> Result<(), String> {
                     fatal_dialog(
                         app,
                         if ready {
-                            "DeepSeek Harness 服务器已退出，应用将关闭。".to_string()
+                            "DSH Desktop 服务器已退出，应用将关闭。".to_string()
                         } else {
-                            "DeepSeek Harness 服务器启动失败（进程提前退出）。\n请查看日志：~/Library/Logs/DeepSeekHarness/desktop.log".to_string()
+                            "DSH Desktop 服务器启动失败（进程提前退出）。\n请查看日志：~/Library/Logs/DSHDesktop/desktop.log".to_string()
                         },
                     );
                 }
@@ -277,7 +277,7 @@ fn setup_menu(app: &tauri::App) -> tauri::Result<()> {
     let separator = PredefinedMenuItem::separator(app)?;
     let reload = MenuItem::with_id(app, "reload", "重新加载", true, Some("CmdOrCtrl+R"))?;
     let open_browser = MenuItem::with_id(app, "open-browser", "在浏览器中打开", true, None::<&str>)?;
-    let quit = PredefinedMenuItem::quit(app, Some("退出 DeepSeek Harness"))?;
+    let quit = PredefinedMenuItem::quit(app, Some("退出 DSH Desktop"))?;
     let menu = Menu::with_items(
         app,
         &[&about, &separator, &reload, &open_browser, &separator, &quit],
@@ -335,7 +335,7 @@ fn disable_webview_scroll_elasticity(window: &tauri::WebviewWindow) {
 /// 菜单栏（状态栏）托盘图标：左键显示主窗口，右键菜单含「显示主窗口 / 退出」。
 fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
     let show = MenuItem::with_id(app, "show", "显示主窗口", true, None::<&str>)?;
-    let quit = MenuItem::with_id(app, "tray-quit", "退出 DeepSeek Harness", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "tray-quit", "退出 DSH Desktop", true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&show, &quit])?;
 
     let icon = Image::from_bytes(include_bytes!("../icons/tray.png"))
@@ -344,7 +344,7 @@ fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
     TrayIconBuilder::with_id("main-tray")
         .icon(icon)
         .icon_as_template(true)
-        .tooltip("DeepSeek Harness")
+        .tooltip("DSH Desktop")
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id().as_ref() {
@@ -387,7 +387,7 @@ pub fn run() {
                 "main",
                 WebviewUrl::App("index.html".into()),
             )
-            .title("DeepSeek Harness")
+            .title("DSH Desktop")
             .inner_size(1280.0, 860.0)
             .min_inner_size(900.0, 600.0)
             .build()?;
@@ -409,7 +409,7 @@ pub fn run() {
             let handle = app.handle().clone();
             std::thread::spawn(move || {
                 if let Err(error) = boot_server(&handle) {
-                    fatal_dialog(&handle, format!("无法启动 DeepSeek Harness 服务器：\n{error}"));
+                    fatal_dialog(&handle, format!("无法启动 DSH Desktop 服务器：\n{error}"));
                 }
             });
 

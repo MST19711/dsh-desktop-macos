@@ -1,21 +1,21 @@
 #!/bin/bash
 # 自动验证构建产物：
-#   1. 启动 dist/DeepSeek Harness.app
+#   1. 启动 dist/DSH Desktop.app
 #   2. 等待日志出现就绪 URL，curl 校验页面（__DSH_BOOT__）
 #   3. 确认 node 服务器子进程存在
 #   4. 退出应用，确认子进程被清理、端口不再监听
 #   5. codesign --verify
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-APP="$ROOT/dist/DeepSeek Harness.app"
-LOG="$HOME/Library/Logs/DeepSeekHarness/desktop.log"
+APP="$ROOT/dist/DSH Desktop.app"
+LOG="$HOME/Library/Logs/DSHDesktop/desktop.log"
 
 [ -d "$APP" ] || { echo "错误：$APP 不存在，先运行 build.sh" >&2; exit 1; }
 
 echo "==== [0] 清理残留实例 ===="
 # 先退出已运行的实例，避免单实例机制干扰；同时清理历史遗留的孤儿 node 子进程
 # （例如应用被 SIGTERM 强杀时无法执行清理逻辑）。
-osascript -e 'quit app "DeepSeek Harness"' >/dev/null 2>&1 || true
+osascript -e 'quit app "DSH Desktop"' >/dev/null 2>&1 || true
 sleep 2
 for pid in $(pgrep -f 'bin.js web --host 127.0.0.1 --port 0' || true); do
   if ps -p "$pid" -o command= 2>/dev/null | grep -q "$APP"; then
@@ -58,9 +58,9 @@ NODE_PID="$(pgrep -f 'node_modules/@deepseek-ai/dsh/lib/bin.js' | head -1)"
 [ -n "$NODE_PID" ] && echo "node 子进程 PID=$NODE_PID" || { echo "错误：未找到 node 子进程"; exit 1; }
 
 echo "==== [5] 退出应用并检查清理 ===="
-osascript -e 'quit app "DeepSeek Harness"' || killall "DeepSeek Harness" 2>/dev/null || true
+osascript -e 'quit app "DSH Desktop"' || killall "DSH Desktop" 2>/dev/null || true
 for i in $(seq 1 15); do
-  if ! pgrep -f 'DeepSeek Harness.app/Contents/MacOS' >/dev/null; then break; fi
+  if ! pgrep -f 'DSH Desktop.app/Contents/MacOS' >/dev/null; then break; fi
   sleep 1
 done
 sleep 2

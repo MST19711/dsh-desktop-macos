@@ -2,7 +2,7 @@
 //!
 //! 原理：这个 App 本质是「Rust 外壳 + npm 包 @deepseek-ai/dsh 负载」。
 //! 启动时在后台检查 npm 上该包的最新版本，若有新版则安装到应用数据目录
-//! （`~/Library/Application Support/com.deepseek-ai.dsh-desktop/server`），
+//! （`~/Library/Application Support/com.dshdesktop.app/server`），
 //! 不修改 .app 包内资源（避免破坏代码签名）；下次启动优先使用更新后的负载，
 //! 校验失败自动回退到内置负载。
 //!
@@ -144,7 +144,7 @@ fn bundled_npm_cli(app: &AppHandle) -> PathBuf {
     }
 }
 
-/// 应用数据目录（`~/Library/Application Support/com.deepseek-ai.dsh-desktop`）。
+/// 应用数据目录（`~/Library/Application Support/com.dshdesktop.app`）。
 fn updates_root(app: &AppHandle) -> Option<PathBuf> {
     app.path().app_data_dir().ok()
 }
@@ -190,7 +190,7 @@ fn run_npm(
         return Err(format!("npm CLI 缺失：{}", npm_cli.display()));
     }
     let cache = std::env::var_os("HOME")
-        .map(|h| PathBuf::from(h).join("Library/Caches/DeepSeekHarness/npm"))
+        .map(|h| PathBuf::from(h).join("Library/Caches/DSHDesktop/npm"))
         .unwrap_or_else(|| PathBuf::from("/tmp/dsh-npm-cache"));
 
     let mut child = StdCommand::new(&node)

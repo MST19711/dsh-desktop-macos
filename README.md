@@ -1,4 +1,4 @@
-# DeepSeek Harness 桌面版（macOS）
+# DSH Desktop — DeepSeek Harness 非官方 macOS 桌面版
 
 > **⚠️ 非官方项目（Unofficial）**
 >
@@ -20,8 +20,8 @@
 用 [Tauri v2](https://v2.tauri.app)（系统 WebKit）做窗口外壳。
 
 ```
-DeepSeek Harness.app/
-  Contents/MacOS/DeepSeek Harness          # Rust 主程序
+DSH Desktop.app/
+  Contents/MacOS/DSH Desktop            # Rust 主程序
   Contents/MacOS/node                      # Node.js 24 LTS（externalBin sidecar）
   Contents/Resources/server/              # dsh 服务器负载（node_modules + 前端 dist）
   Contents/Resources/ui/                   # 启动 splash 页
@@ -37,7 +37,7 @@ DeepSeek Harness.app/
 ./build.sh
 ```
 
-产物：`dist/DeepSeek Harness.app` 与 `dist/DeepSeek Harness.dmg`。
+产物：`dist/DSH Desktop.app` 与 `dist/DeepSeek Harness.dmg`。
 
 - 需要网络：npm registry、crates.io、nodejs.org；首次构建会编译约 400 个 Rust crate（5–15 分钟）。
 - 只支持当前架构（Apple Silicon arm64；Intel 机器运行脚本会自动下载 x64 Node）。
@@ -61,7 +61,7 @@ debug 模式可用 `DSH_DESKTOP_NODE=/path/to/node npx tauri dev` 指定 Node。
 ## 运行与数据
 
 - 首次打开：窗口会显示 splash 直到服务器就绪（通常 2–5 秒），之后自动加载 Web UI。
-- 服务器日志：`~/Library/Logs/DeepSeekHarness/desktop.log`（含就绪 URL 与服务器输出）。
+- 服务器日志：`~/Library/Logs/DSHDesktop/desktop.log`（含就绪 URL 与服务器输出）。
 - 用户数据：沿用 harness 惯例存于 `~/.dsh`（与命令行 `dsh` 共享；可用 `DSH_HOME` 覆盖）。
 - 使用：在 Web UI 中 **Settings → Models** 配置 API Key，然后 **选择工作目录** 即可开始对话。
 - 单实例：重复打开会恢复并聚焦已有窗口。
@@ -75,7 +75,7 @@ debug 模式可用 `DSH_DESKTOP_NODE=/path/to/node npx tauri dev` 指定 Node。
 App 启动时会在后台检查 npm 上 `@deepseek-ai/dsh` 的最新版本（内置 node + 随包分发的
 npm CLI，节流 6 小时一次）：
 
-1. 有新版 → 安装到应用数据目录 `~/Library/Application Support/com.deepseek-ai.dsh-desktop/server.new`
+1. 有新版 → 安装到应用数据目录 `~/Library/Application Support/com.dshdesktop.app/server.new`
    （暂存目录，校验 `bin.js` 存在后原子替换为 `server/`）。
 2. 本次运行仍使用旧负载，**下次启动生效**：优先加载更新版负载，损坏/缺失时自动回退内置负载。
 3. 更新只写应用数据目录，不改 `.app` 包内资源，不破坏代码签名；失败（离线/超时/校验失败）
@@ -89,8 +89,8 @@ npm CLI，节流 6 小时一次）：
 | `DSH_DESKTOP_FORCE_UPDATE=1` | 忽略版本比较与 6 小时节流，强制重装（测试用） |
 | `npm_config_registry=...` | npm 镜像/本地源（npm 标准变量，透传给更新器） |
 
-回退内置负载：删除 `~/Library/Application Support/com.deepseek-ai.dsh-desktop/server` 目录即可。
-日志：`~/Library/Logs/DeepSeekHarness/desktop.log` 中以 `auto-update:` 前缀记录每次检查与安装结果。
+回退内置负载：删除 `~/Library/Application Support/com.dshdesktop.app/server` 目录即可。
+日志：`~/Library/Logs/DSHDesktop/desktop.log` 中以 `auto-update:` 前缀记录每次检查与安装结果。
 
 ## 目录结构
 
@@ -110,9 +110,9 @@ dist/                  构建产物（gitignored）
 
 ## 故障排查
 
-- 启动超时/报错对话框 → 查看 `~/Library/Logs/DeepSeekHarness/desktop.log`。
+- 启动超时/报错对话框 → 查看 `~/Library/Logs/DSHDesktop/desktop.log`。
 - 自动更新异常（一直用旧版/回退内置版）→ 查看日志中 `auto-update:` 行；
-  清理 `~/Library/Application Support/com.deepseek-ai.dsh-desktop/server` 可重置为内置负载。
+  清理 `~/Library/Application Support/com.dshdesktop.app/server` 可重置为内置负载。
 - 重新构建前如负载损坏：`rm -rf desktop/src-tauri/server desktop/src-tauri/binaries && ./build.sh`。
 - crates.io 直连 TLS 失败时使用 rsproxy 镜像（见 `desktop/src-tauri/.cargo/config.toml`），
   可自行换成其他镜像源。
