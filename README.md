@@ -1,5 +1,20 @@
 # DeepSeek Harness 桌面版（macOS）
 
+> **⚠️ 非官方项目（Unofficial）**
+>
+> 本项目是社区第三方项目，**不是 DeepSeek（深度求索）官方发布**，与 DeepSeek 及其关联公司
+> 无任何隶属、合作或背书关系。本项目仅将官方开源项目
+> [deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) 的 Web UI
+> （官方 npm 包 `@deepseek-ai/dsh`）封装为 macOS 桌面应用。
+>
+> **This is an unofficial, community project. It is not affiliated with, endorsed by, or
+> sponsored by DeepSeek. It merely packages the official open-source project
+> [deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) into a
+> macOS desktop app.**
+>
+> 关于 dsh 本身的功能、缺陷与安全问题，请反馈至上游官方仓库；本仓库只负责桌面封装层。
+> DeepSeek、DeepSeek Harness 及相关标志均为其各自所有者的商标或财产。
+
 把 [deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) 的 Web GUI 打包成
 自包含的 macOS 桌面 App：内嵌 Node.js 运行时 + 官方 `@deepseek-ai/dsh` npm 负载，
 用 [Tauri v2](https://v2.tauri.app)（系统 WebKit）做窗口外壳。
