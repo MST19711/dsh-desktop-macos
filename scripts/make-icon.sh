@@ -1,8 +1,7 @@
 #!/bin/bash
-# 生成应用图标：官方 DeepSeek 鲸鱼 logo（黑色）渲染为 1024x1024 源 PNG
-# → `tauri icon` 生成全套图标（icns/ico/png）。
-# 素材：scripts/deepseek-whale.svg（官方 favicon 路径，去掉了深色模式反色 style），
-# 合成：scripts/deepseek-whale-icon.svg（白色圆角底 + 黑色鲸鱼）。
+# 生成应用图标：macOS 窗口风格图标（scripts/deepseek-window-icon.svg）
+# 渲染为 1024x1024 源 PNG → `tauri icon` 生成全套图标（icns/ico/png）。
+# 素材：scripts/deepseek-window-icon.svg（窗口 + 右下角鲸鱼徽章）。
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
@@ -11,7 +10,7 @@ mkdir -p /tmp/swift-modcache /tmp/clang-modcache
 CLANG_MODULE_CACHE_PATH=/tmp/clang-modcache \
 SWIFT_MODULE_CACHE_PATH=/tmp/swift-modcache \
   swift "$ROOT/scripts/render-svg.swift" \
-    "$ROOT/scripts/deepseek-whale-icon.svg" "$ROOT/app-icon.png"
+    "$ROOT/scripts/deepseek-window-icon.svg" "$ROOT/app-icon.png"
 # WKWebView takeSnapshot 输出为 2x，缩放到 1024
 sips -z 1024 1024 "$ROOT/app-icon.png" --out "$ROOT/app-icon.png" >/dev/null
 sips -g pixelWidth -g pixelHeight "$ROOT/app-icon.png" | tail -2
@@ -29,7 +28,7 @@ echo "==> 托盘图标 (menu bar template, 透明底黑鲸鱼)"
 CLANG_MODULE_CACHE_PATH=/tmp/clang-modcache \
 SWIFT_MODULE_CACHE_PATH=/tmp/swift-modcache \
   swift "$ROOT/scripts/render-svg.swift" \
-    "$ROOT/scripts/deepseek-whale-tray.svg" "$ROOT/desktop/src-tauri/icons/tray.png"
+    "$ROOT/scripts/dsh-tray.svg" "$ROOT/desktop/src-tauri/icons/tray.png"
 sips -z 128 128 "$ROOT/desktop/src-tauri/icons/tray.png" --out "$ROOT/desktop/src-tauri/icons/tray.png" >/dev/null
 
 echo "==> 图标完成"
