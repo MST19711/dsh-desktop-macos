@@ -297,41 +297,6 @@ fn show_main_window(app: &AppHandle) {
 
 /// 禁用 WKWebView 文档级滚动弹性（macOS 橡皮筋/回弹）。
 ///
-/// 隐藏窗口标题文字（Overlay 无顶栏窗口：直接操作 NSWindow，不依赖 tauri 权限）。
-#[cfg(target_os = "macos")]
-fn hide_window_title(window: &tauri::WebviewWindow) {
-    use objc2_app_kit::{NSWindow, NSWindowTitleVisibility};
-    unsafe {
-        let Ok(ns_window) = window.ns_window() else {
-            return;
-        };
-        let ns_window = ns_window as *mut NSWindow;
-        (&*ns_window).setTitleVisibility(NSWindowTitleVisibility::Hidden);
-        log_line("window title hidden (overlay)");
-    }
-}
-
-/// 无顶栏窗口拖拽：顶部 40px 空白区按住可拖动窗口。
-/// Overlay 模式内容铺满全窗口（fullSizeContentView），系统标题栏拖拽区被 Web 内容
-/// 覆盖，需在页面注入 mousedown → start_dragging 逻辑；dsh UI 顶部的交互元素
-/// （按钮/输入框/链接等）不受影响。
-const DRAG_SCRIPT: &str = r#"
-(() => {
-  if (window.__dshDragInjected) return;
-  window.__dshDragInjected = true;
-  const INTERACTIVE = 'button, input, textarea, select, a, [role="button"], [contenteditable], [data-tauri-drag-region]';
-  document.addEventListener('mousedown', (e) => {
-    if (e.button !== 0) return;
-    if (e.clientY > 40 || e.clientY < 0) return;
-    if (e.target && e.target.closest && e.target.closest(INTERACTIVE)) return;
-    if (window.__TAURI_INTERNALS__) {
-      e.preventDefault();
-      window.__TAURI_INTERNALS__.invoke('plugin:window|start_dragging').catch(() => {});
-    }
-  }, true);
-})();
-"#;
-
 /// WKWebView 的滚动视图（私有 WKScrollView，NSScrollView 子类）默认开启弹性，
 /// 即使在不可滚动区域滚动滚轮也会让整个页面回弹。这里遍历窗口视图树，
 /// 把所有 NSScrollView 的横纵向弹性设为 None；内部 HTML 滚动容器不受影响。
@@ -425,14 +390,8 @@ pub fn run() {
             .title("DeepSeek Harness")
             .inner_size(1280.0, 860.0)
             .min_inner_size(900.0, 600.0)
-            // 无顶栏（沉浸式）：Overlay 隐藏标题栏但保留交通灯/圆角/拖拽/缩放，
-            // 注意：不能搭配 decorations(false)——那会移除整个窗口样式（方形、无灯、不可拖）
-            .title_bar_style(tauri::TitleBarStyle::Overlay)
-            // 注入顶部空白区拖拽脚本（Overlay 内容铺满窗口，系统拖拽区被覆盖）
-            .initialization_script(DRAG_SCRIPT)
             .build()?;
             window.show()?;
-            hide_window_title(&window);
             // WKWebView 的滚动视图（WKScrollView）在布局后才存在，需在显示后
             // 再执行弹性禁用；导航到真实页面后与延迟重试兜底。
             disable_webview_scroll_elasticity(&window);
